@@ -5,9 +5,11 @@ import useWindowDimensions
 
 const MAX_BLACKS = 1;
 
+function randomIntFromInterval(min, max) { // min and max included
+  return (Math.random() * (max - min + 1) + min);
+}
+
 const getNeighbours = (i, j, maxI, maxJ) => {
-  //     [2][]
-  //     [5][3]
   return [
     {row: Math.max(i - 1, 0), col: j},
     {row: Math.min(i + 1, maxI), col: j},
@@ -23,22 +25,45 @@ function isDead(cell) {
   return cell?.props?.className?.includes('dead');
 }
 
+function getRandomIndex(array) {
+  return Math.floor(Math.random() * array.length - 1);
+}
+
+function getOneOrZero() {
+  return (Math.random() >= 0.6) ? 1 : 0;
+}
+
+const highPopURL = process.env.PUBLIC_URL + '/pop-high.mp3';
+
+const lowPopURL = process.env.PUBLIC_URL + '/pop-low.mp3';
+
 function Matrix() {
   const itemsRef = useRef([]);
 
   const {height, width} = useWindowDimensions();
-  const [rows, setRows] = useState(Math.floor(width / 16));
-  const [columns, setColumns] = useState(Math.floor(height / 16));
+  const [rows, setRows] = useState(Math.floor(height / 18));
+  const [columns, setColumns] = useState(Math.floor(width / 18));
   const [matrix, setMatrix] = useState([[]]);
   const [timeOuts, setTimeOuts] = useState([]);
 
   const [running, setRunning] = useState(false);
   const runningRef = useRef(running);
+  const [randomStart, setRandomStart] = useState();
+  const lowPop = new Audio(highPopURL);
+  const highPop = new Audio(lowPopURL);
+  lowPop.volume = 0.05;
+  highPop.volume = 0.05;
+
+  function setRC(r, clm) {
+    document.documentElement.style.setProperty('--columns', clm);
+    document.documentElement.style.setProperty('--rows', r);
+  }
 
   useEffect(() => {
     itemsRef.current = Array.from({length: rows},
         () => Array(columns).fill(null));
 
+    setRC(rows, columns);
     createGrid();
   }, [rows, columns]);
 
@@ -56,27 +81,30 @@ function Matrix() {
 
     let black_count = 0;
     while (++black_count <= MAX_BLACKS) {
-      let deadX = Math.floor(Math.random() * grid_temp.length - 1);
-      let deadY = Math.floor(Math.random() * grid_temp.length - 1);
+      let randomIndex = Math.floor(Math.random() * grid_temp.length - 1);
+      let deadX = randomIndex;
+      let deadY = randomIndex;
 
       let neighbours = getNeighbours(deadX, deadY, rows, columns);
-      // 2,5,3
-      neighbours.filter(n => n.row !== -1 && n.col !== -1).
-          forEach((neighbour, ind) => {
-            grid_temp[neighbour.row][neighbour.col] =
-                <div key={`${deadX}-${deadY}-${JSON.stringify(neighbour)}`}
-                     ref={el => itemsRef.current[neighbour.row][neighbour.col] = el}
-                     className={'cell dead'}/>;
-            console.log(neighbour);
-          });
+      let filtered_nb = neighbours.filter(n => n.row !== -1 && n.col !== -1);
+      filtered_nb.forEach((neighbour, ind) => {
+        let oneOrZero = getOneOrZero();
+        let candRow = neighbour.row + oneOrZero;
+        oneOrZero = getOneOrZero();
+        let candCol = neighbour.col + oneOrZero;
+        grid_temp[candRow][candCol] =
+            <div key={`${deadX}-${deadY}-${JSON.stringify(neighbour)}`}
+                 ref={el => itemsRef.current[candRow][candCol] = el}
+                 className={'cell dead'}/>;
+      });
 
+      setRandomStart(
+          neighbours[Math.floor(Math.random() * filtered_nb.length - 1)]);
     }
 
     setMatrix(grid_temp);
   };
-
   const checker = (randomCellRow, randomCellCol) => {
-
     if (!runningRef.current) {
       return;
     }
@@ -96,7 +124,7 @@ function Matrix() {
     }
 
     let cell = matrix[randomCellRow][randomCellCol];
-    const tm = setTimeout(() => {
+    const tm = setTimeout(async () => {
 
       // Any dead cell with three live neighbours becomes a live cell.
       const neighbours = getNeighbours(randomCellRow, randomCellCol,
@@ -105,7 +133,7 @@ function Matrix() {
       let earlier_class = '';
       if (span) {
         earlier_class = span.className;
-        span.className = 'cell red';
+        span.className = 'cell';
       }
 
       if (isDead(cell)) {
@@ -119,6 +147,10 @@ function Matrix() {
         });
         if (count >= 3) {
           earlier_class = 'cell';
+          highPop.mozPreservesPitch = false;
+          highPop.playbackRate = randomIntFromInterval(0.25, 4.0);
+          await highPop.play();
+
         }
       } else {
 
@@ -133,74 +165,61 @@ function Matrix() {
         if (count < 2 || count > 3) {
           // All other live cells die in the next generation. Similarly, all other dead cells stay dead.
           earlier_class = 'cell dead';
+          lowPop.mozPreservesPitch = false;
+          lowPop.playbackRate = randomIntFromInterval(0.25, 4.0);
+          await lowPop.play();
+
         }
 
       }
       if (span) {
         span.className = earlier_class;
       }
-      // for (const neighbour of neighbours) {
-      //   if (neighbour.row !== randomCellRow || neighbour.col !==
-      //       randomCellCol) {
-      //       checker(neighbour.row, neighbour.row);
-      //   }
-      // }
-
       let x = -1;
 
       while (x === -1) {
         x = Math.floor(Math.random() * neighbours.length - 1);
       }
-      console.log(x, neighbours[x]);
 
       checker(neighbours[x].row, neighbours[x].col);
+
       while (x === -1) {
         x = Math.floor(Math.random() * neighbours.length - 1);
       }
-      checker(neighbours[x].row, neighbours[x].col);
-
+      // checker(neighbours[x].row, neighbours[x].col);
       // let row = (Math.floor(Math.random() * rows));
       // let col = (Math.floor(Math.random() * columns));
       // checker(row, col);
-    }, 10);
+    }, 200);
     setTimeOuts(prev => [...prev, tm]);
 
   };
 
   useEffect(() => {
-    if (matrix && running) {
-      let row = (Math.floor(Math.random() * rows));
-      let col = (Math.floor(Math.random() * columns));
+    if (matrix && running && randomStart) {
+      // let row = (Math.floor(Math.random() * rows));
+      // let col = (Math.floor(Math.random() * columns));
       runningRef.current = true;
-      checker(row, col);
+      checker(randomStart.row, randomStart.col);
     }
     runningRef.current = running;
     if (!running) {
       timeOuts.forEach(timeout => clearInterval(timeout));
+      highPop.pause();
+      lowPop.pause();
     }
-    return () => {
+    return async () => {
       timeOuts.forEach(timeout => clearInterval(timeout));
+      await highPop.pause();
+      await lowPop.pause();
     };
 
-  }, [running]);
+  }, [running, randomStart]);
 
   return (
       <>
 
-        <div className={'grid1'} style={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(${columns }, 16px)`,
-          width: 'fit-content',
-          margin: '0 auto',
-          position: 'relative',
-
-        }}>
-          {/*  {matrix?.map((row, i) => row?.map(((col, j) => {*/}
-
-          {/*    return (<div key={`${i}-${j}-${col}`}*/}
-          {/*                 className={col}/>*/}
-          {/*    );*/}
-          {/*  })))}*/}
+        <div className={'grid1'}>
           {matrix}
           <button className={'btn'} onClick={() => {
             setRunning(prev => !prev);

@@ -3,9 +3,7 @@
 *
 * */
 import React, {
-  cloneElement,
   useCallback,
-  useEffect,
   useRef,
   useState,
 } from 'react';

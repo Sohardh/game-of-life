@@ -1,12 +1,14 @@
-import Matrix from './matrix/Matrix';
+import Matrix  from './matrix/Matrix';
 import Matrix2 from './matrix/Matrix2';
+import './App.css'
 
 function App() {
   return (
-      <div >
+      <div className={'app'}>
         <Matrix/>
-        <Matrix2/>
+        {/*<Matrix2/>*/}
       </div>
+
   );
 }
 
