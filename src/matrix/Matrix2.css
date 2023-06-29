@@ -1,11 +1,12 @@
-.grid1 {
+.grid {
 
+    position: relative;
 }
 
 .cell {
     width: 16px;
     aspect-ratio: 1;
-    border: 1px solid black;
+    /*border: 1px solid black;*/
     /*border-radius: 50%;*/
 }
 
@@ -17,7 +18,7 @@
     background: red;
 }
 
-.btn {
+.btn2 {
     position: absolute;
     left: 50%;
     bottom: 0;
@@ -33,7 +34,7 @@
 
 }
 
-.btn:active {
+.btn2:active {
     border-radius: 24px;
     border: none;
     color: black;
